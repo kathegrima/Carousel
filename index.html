@@ -255,12 +255,12 @@
       </button>
     </div>
 
-    <!-- STEP 3: Visual Generation con Gemini -->
+    <!-- STEP 3: Visual Generation -->
     <div class="step">
-      <div class="step-label">Step 3 · Gemini Imagen</div>
+      <div class="step-label">Step 3 · Visual</div>
       <h2>Visual Generation</h2>
       <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6;">
-        Genera immagini per ogni slide con Gemini Imagen 3.
+        Genera immagini per ogni slide (via Pollinations.ai, free).
       </p>
       <div class="field">
         <label>STILE VISIVO</label>
@@ -271,8 +271,8 @@
           <button class="chip" data-val="photographic">📷 Photo</button>
         </div>
       </div>
-      <button class="btn btn-outline btn-full" id="btn-visual" onclick="generateGeminiVisuals()" disabled>
-        🎨 Genera con Gemini
+      <button class="btn btn-outline btn-full" id="btn-visual" onclick="generateVisuals()" disabled>
+        🎨 Genera visual
       </button>
       <p style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5;">
         Genera 1 immagine alla volta — attendi il completamento.
@@ -317,9 +317,25 @@
 
 <script>
 // ─────────────────────────────────────────
-// ⚙️ CONFIGURA QUI l'URL del tuo Worker Cloudflare
+// CONFIGURA QUI l'URL del tuo Worker (solo testo Gemini)
 // ─────────────────────────────────────────
 const WORKER_URL = "https://carousel.fumettiastro.workers.dev";
+
+// Helper per estrarre solo il JSON da una risposta Gemini
+function extractJSON(raw) {
+  let s = raw.replace(/```json\s*/gi, "").replace(/```\s*/gi, "").trim();
+  const firstBrace = s.indexOf("{");
+  const firstBracket = s.indexOf("[");
+  let start = -1;
+  let endChar = "";
+  if (firstBrace === -1 && firstBracket === -1) throw new Error("Nessun JSON trovato nella risposta");
+  if (firstBrace === -1) { start = firstBracket; endChar = "]"; }
+  else if (firstBracket === -1) { start = firstBrace; endChar = "}"; }
+  else { start = Math.min(firstBrace, firstBracket); endChar = start === firstBrace ? "}" : "]"; }
+  const end = s.lastIndexOf(endChar);
+  if (end === -1 || end <= start) throw new Error("JSON malformato o troncato — prova a rigenerare");
+  return s.slice(start, end + 1);
+}
 
 // ─────────────────────────────────────────
 // CONTESTO LEANTIL
@@ -347,49 +363,15 @@ let state = {
   selectedTopic: null,
   topics: [],
   slides: [],
-  geminiImages: [],
+  images: [],
   currentTab: 'topics'
 };
 
-// Helper robusto per estrarre solo il JSON dalla risposta Gemini
-function extractJSON(raw) {
-  // Rimuovi eventuali fence markdown
-  let s = raw.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
-  const firstBrace = s.indexOf('{');
-  const firstBracket = s.indexOf('[');
-  let start = -1;
-  let endChar = '';
-
-  if (firstBrace === -1 && firstBracket === -1) {
-    throw new Error('Nessun JSON trovato nella risposta del modello');
-  }
-  if (firstBrace === -1) {
-    start = firstBracket;
-    endChar = ']';
-  } else if (firstBracket === -1) {
-    start = firstBrace;
-    endChar = '}';
-  } else {
-    if (firstBrace < firstBracket) {
-      start = firstBrace;
-      endChar = '}';
-    } else {
-      start = firstBracket;
-      endChar = ']';
-    }
-  }
-  const end = s.lastIndexOf(endChar);
-  if (end === -1 || end <= start) {
-    throw new Error('JSON malformato o troncato — prova a rigenerare');
-  }
-  return s.slice(start, end + 1);
-}
-
 // ─────────────────────────────────────────
-// API HELPERS — solo Gemini
+// API HELPERS
 // ─────────────────────────────────────────
 
-// Testo: chiama /gemini-text sul Worker
+// Testo via worker /gemini-text
 async function callGeminiText(messages, maxTokens = 1500) {
   const res = await fetch(`${WORKER_URL}/gemini-text`, {
     method: 'POST',
@@ -405,20 +387,26 @@ async function callGeminiText(messages, maxTokens = 1500) {
   return data.text;
 }
 
-// Immagini: chiama /gemini sul Worker
+// Immagini via Pollinations.ai (no worker, no key)
 async function callGeminiImage(prompt) {
-  const res = await fetch(`${WORKER_URL}/gemini`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt })
+  const encoded = encodeURIComponent(
+    `${prompt}, no text, no words, square 1:1, professional, clean, high quality`
+  );
+  const url = `https://image.pollinations.ai/prompt/${encoded}?width=1080&height=1080&nologo=true&seed=${Date.now()}`;
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Pollinations error ${res.status}`);
+
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(',')[1];
+      resolve({ imageBase64: base64, mimeType: 'image/jpeg' });
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
   });
-  if (!res.ok) {
-    const errBody = await res.text();
-    throw new Error(`Gemini image error ${res.status}: ${errBody}`);
-  }
-  const data = await res.json();
-  if (data.error) throw new Error(JSON.stringify(data.error));
-  return data; // { imageBase64, mimeType }
 }
 
 // ─────────────────────────────────────────
@@ -542,7 +530,6 @@ function useRandomIdea() {
   document.querySelector('.panel').scrollTo({ top: 300, behavior: 'smooth' });
 }
 
-
 // ─────────────────────────────────────────
 // STEP 1: TOPIC DISCOVERY
 // ─────────────────────────────────────────
@@ -641,7 +628,7 @@ Regole di struttura:
 - Slide 1: HOOK fortissimo + sottotitolo intrigante.
 - Slide 2–${numSlides - 1}: contenuto di valore (dati, insight, consigli pratici), una slide = un concetto.
 - Ultima slide: CTA chiara verso la beta LeanTil (leantil.com), eventualmente con invito a commentare/salvare il post.
-- Linguaggio semplice, diretto, in italiano, taglio LinkedIn (niente emoji ovunque, ma ok usi mirati).
+- Linguaggio semplice, diretto, in italiano, taglio LinkedIn.
 - Usa SOLO dati e statistiche reali (es. OMS, studi ergonomici pubblicati). NON inventare numeri: se non hai dati certi, usa formulazioni qualitative.
 
 Rispondi SOLO in JSON valido, senza markdown, con questa struttura esatta:
@@ -652,7 +639,7 @@ Rispondi SOLO in JSON valido, senza markdown, con questa struttura esatta:
       "type": "HOOK | PROBLEMA | INSIGHT | TIP | DATO | CTA | SOLUZIONE",
       "headline": "testo principale",
       "copy": "testo di supporto (max 30 parole)",
-      "gemini_prompt": "prompt in inglese per generare con Gemini un'immagine LinkedIn per questa slide: stile, soggetto, mood (max 50 parole, NO testo nell'immagine)"
+      "gemini_prompt": "prompt in inglese per generare un'immagine quadrata per questa slide: stile, soggetto, mood (max 50 parole, NO testo nell'immagine)"
     }
   ]
 }`;
@@ -661,7 +648,7 @@ Rispondi SOLO in JSON valido, senza markdown, con questa struttura esatta:
     const raw = await callGeminiText([{ role: 'user', content: prompt }], 2500);
     const clean = extractJSON(raw);
     state.slides = JSON.parse(clean).slides;
-    state.geminiImages = new Array(state.slides.length).fill(null);
+    state.images = new Array(state.slides.length).fill(null);
 
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab')[1].classList.add('active');
@@ -705,9 +692,9 @@ function renderSlides() {
 }
 
 // ─────────────────────────────────────────
-// STEP 3: GEMINI IMAGEN
+// STEP 3: VISUAL GENERATION (POLLINATIONS)
 // ─────────────────────────────────────────
-async function generateGeminiVisuals() {
+async function generateVisuals() {
   if (!state.slides.length) return;
 
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -722,16 +709,14 @@ async function generateGeminiVisuals() {
   for (let i = 0; i < state.slides.length; i++) {
     const slide = state.slides[i];
     const basePrompt = slide.gemini_prompt || `LinkedIn carousel slide for LeanTil posture smart cushion, ${state.visualStyle} style, professional, clean`;
-    const fullPrompt = `${basePrompt}. Style: ${state.visualStyle}. Square format 1:1. No text, no words, no letters. Professional LinkedIn content. Minimalist, high quality.`;
-
     updateSlideVisual(i, 'loading');
 
     try {
-      const result = await callGeminiImage(fullPrompt);
-      state.geminiImages[i] = result;
+      const result = await callGeminiImage(basePrompt);
+      state.images[i] = result;
       updateSlideVisual(i, 'done', result);
     } catch (e) {
-      state.geminiImages[i] = { error: e.message };
+      state.images[i] = { error: e.message };
       updateSlideVisual(i, 'error', null, e.message);
     }
 
@@ -740,7 +725,7 @@ async function generateGeminiVisuals() {
 
   btn.disabled = false; btn.textContent = '🎨 Rigenera visual';
 
-  const hasImages = state.geminiImages.some(img => img && img.imageBase64);
+  const hasImages = state.images.some(img => img && img.imageBase64);
   if (hasImages) {
     document.getElementById('btn-download-images').style.display = 'inline-flex';
   }
@@ -753,14 +738,14 @@ function renderVisualGrid(loadingState = false) {
   }
   const body = document.getElementById('output-body');
   body.innerHTML = `
-    <div class="notice info">🎨 Immagini generate con Gemini Imagen · Stile: ${state.visualStyle}</div>
+    <div class="notice info">🎨 Immagini generate via Pollinations.ai · Stile: ${state.visualStyle}</div>
     <div class="visual-grid" id="visual-grid">
       ${state.slides.map((s, i) => buildVisualSlot(s, i, loadingState)).join('')}
     </div>`;
 }
 
 function buildVisualSlot(slide, idx, loading = false) {
-  const img = state.geminiImages[idx];
+  const img = state.images[idx];
   if (loading || !img) {
     return `<div class="slide-preview generating" id="vslot-${idx}">
       <div class="spinner"></div>
@@ -810,7 +795,7 @@ function updateSlideVisual(idx, state_type, data, errorMsg) {
 }
 
 function openImageModal(idx) {
-  const img = state.geminiImages[idx];
+  const img = state.images[idx];
   const slide = state.slides[idx];
   if (!img?.imageBase64) return;
 
@@ -836,16 +821,16 @@ function openImageModal(idx) {
 }
 
 function downloadSingleImage(idx) {
-  const img = state.geminiImages[idx];
+  const img = state.images[idx];
   if (!img?.imageBase64) return;
   const a = document.createElement('a');
   a.href = `data:${img.mimeType};base64,${img.imageBase64}`;
-  a.download = `leantil-slide-${idx + 1}.png`;
+  a.download = `leantil-slide-${idx + 1}.jpg`;
   a.click();
 }
 
 function downloadImages() {
-  state.geminiImages.forEach((img, i) => {
+  state.images.forEach((img, i) => {
     if (img?.imageBase64) downloadSingleImage(i);
   });
 }
