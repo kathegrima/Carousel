@@ -465,7 +465,7 @@ Rispondi SOLO in JSON valido, senza markdown:
 }`;
 
   try {
-    const raw = await callGeminiText([{ role: 'user', content: prompt }], 600);
+    const raw = await callGeminiText([{ role: 'user', content: prompt }], 1000);
     const clean = raw.replace(/```json|```/g, '').trim();
     const idea = JSON.parse(clean);
     state.lastRandomIdea = idea;
