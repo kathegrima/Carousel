@@ -324,21 +324,8 @@ const WORKER_URL = "https://carousel.fumettiastro.workers.dev";
 // ─────────────────────────────────────────
 // CONTESTO LEANTIL
 // ─────────────────────────────────────────
-const LEANTIL_CONTEXT = `
-LeanTil è un cuscino smart per la postura. Rileva in tempo reale come si distribuisce il peso sulla seduta e invia un feedback visivo discreto quando rileva postura scorretta prolungata.
-
-Pubblico target: remote worker, smart worker, chi lavora alla scrivania 8+ ore al giorno.
-Piattaforma: LinkedIn.
-Obiettivo: brand awareness + iscrizioni beta + educazione sulla postura.
-Fondatrice: Caterina Grimaldi, nata dal COVID-19 (troppe ore allo schermo).
-Valori del brand: discrezione, efficacia, abitudini durature, benessere mentale e fisico.
-Benefici chiave:
-- Meno tensione su collo e spalle correggendo i piccoli slouch prima che diventino dolore
-- Più energia mentale: postura aperta migliora ossigenazione e concentrazione
-- Abitudini durature: allena il corpo a riconoscere la posizione corretta nel tempo
-Prodotto in beta privata, posti limitati.
-`;
-
+const LEANTIL_CONTEXT = `LeanTil: cuscino smart postura, feedback visivo in tempo reale. Target: remote worker italiani 8+h/giorno. LinkedIn: brand awareness + iscrizioni beta (leantil.com). Benefici: meno tensioni collo/spalle, più energia, abitudini durature. Beta limitata.`;
+  
 const RANDOM_TOPICS_POOL = [
   "il costo nascosto della cattiva postura sulla produttività",
   "perché i reminder della postura non funzionano (e cosa funziona invece)",
@@ -524,29 +511,13 @@ async function discoverTopics() {
   btn.disabled = true; btn.textContent = '⏳ Ricerca…';
   showLoading('Analizzando il contesto LeanTil…');
 
-  const prompt = `Sei un esperto di content marketing LinkedIn per brand B2C/B2B nel settore salute & produttività.
-
+  const prompt = `Content strategist LinkedIn, brand wellness/tech.
 ${LEANTIL_CONTEXT}
-
-Genera esattamente 5 idee di topic per un carousel LinkedIn:
-- Focus: ${focus}
-- Tono: ${state.tone}
-- Contesto aggiuntivo: ${context || 'nessuno'}
-
-Rispondi SOLO in JSON valido senza markdown:
-{
-  "topics": [
-    {
-      "emoji": "emoji singola",
-      "title": "titolo breve (max 8 parole)",
-      "why": "perché funziona per LeanTil (1 frase)",
-      "hook": "prima riga slide 1 – ferma lo scroll (max 12 parole)"
-    }
-  ]
-}`;
+Genera 5 topic carousel. Focus: ${focus}. Tono: ${state.tone}.${context ? ` Contesto: ${context}.` : ''}
+JSON valido senza markdown: { "topics": [{ "emoji","title","why","hook" }] }`
 
   try {
-    const raw = await callGeminiText([{ role: 'user', content: prompt }]);
+    const raw = await callGeminiText([{ role: 'user', content: prompt }], 500);
     const clean = raw.replace(/```json|```/g, '').trim();
     state.topics = JSON.parse(clean).topics;
     renderTopics();
@@ -621,7 +592,7 @@ Rispondi SOLO in JSON valido senza markdown:
 }`;
 
   try {
-    const raw = await callGeminiText([{ role: 'user', content: prompt }], 2000);
+    const raw = await callGeminiText([{ role: 'user', content: prompt }], 1200);
     const clean = raw.replace(/```json|```/g, '').trim();
     state.slides = JSON.parse(clean).slides;
     state.geminiImages = new Array(state.slides.length).fill(null);
