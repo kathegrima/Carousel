@@ -389,20 +389,26 @@ async function callGeminiText(messages, maxTokens = 1500) {
 
 // Immagini via Pollinations.ai (no worker, no key)
 async function callGeminiImage(prompt) {
-  const encoded = encodeURIComponent(
-    `${prompt}, no text, no words, square 1:1, professional, clean, high quality`
-  );
-  const url = `https://image.pollinations.ai/prompt/${encoded}?width=1080&height=1080&nologo=true&seed=${Date.now()}`;
+  // Tronca il prompt a 80 caratteri e rimuovi caratteri speciali
+  const shortPrompt = prompt
+    .slice(0, 80)
+    .replace(/[^\w\s,.-]/g, '')
+    .trim();
 
-  const res = await fetch(url);
+  const encoded = encodeURIComponent(shortPrompt + ', no text, professional');
+  const imageUrl = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true&seed=${Date.now()}`;
+
+  const res = await fetch(imageUrl);
   if (!res.ok) throw new Error(`Pollinations error ${res.status}`);
 
   const blob = await res.blob();
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
-      const base64 = reader.result.split(',')[1];
-      resolve({ imageBase64: base64, mimeType: 'image/jpeg' });
+      resolve({
+        imageBase64: reader.result.split(',')[1],
+        mimeType: 'image/jpeg'
+      });
     };
     reader.onerror = reject;
     reader.readAsDataURL(blob);
