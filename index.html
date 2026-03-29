@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LeanTil – Carousel Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black: #0a0a0a;
+    --white: #f5f3ee;
+    --accent: #c8f060;
+    --accent2: #60d0f0;
+    --mid: #1e1e1e;
+    --border: #2e2e2e;
+    --muted: #888;
+    --font-display: 'DM Serif Display', serif;
+    --font-body: 'DM Sans', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+
+    /* ⚙️ CAMBIA QUESTO con l'URL del tuo Worker Cloudflare dopo il deploy */
+    --worker-url: "https://leantil-carousel-worker.TUO_NOME.workers.dev";
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo-badge {
+    background: var(--accent);
+    color: var(--black);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 4px;
+    letter-spacing: .08em;
+  }
+  header h1 { font-family: var(--font-display); font-size: 20px; font-weight: 400; }
+  header span.sub { margin-left: auto; font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+
+  .app {
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .panel {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .step { padding: 24px 28px; border-bottom: 1px solid var(--border); }
+  .step-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em; color: var(--accent); text-transform: uppercase; margin-bottom: 6px; }
+  .step h2 { font-family: var(--font-display); font-size: 18px; font-weight: 400; margin-bottom: 14px; }
+
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-family: var(--font-mono); letter-spacing: .04em; }
+  input, textarea, select {
+    width: 100%; background: var(--mid); border: 1px solid var(--border);
+    color: var(--white); font-family: var(--font-body); font-size: 14px;
+    padding: 10px 12px; border-radius: 6px; outline: none; transition: border-color .2s; resize: vertical;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+  select option { background: var(--mid); }
+  textarea { min-height: 80px; }
+  .field { margin-bottom: 14px; }
+
+  .topics-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .chip {
+    padding: 6px 14px; border-radius: 100px; font-size: 12px; cursor: pointer;
+    border: 1px solid var(--border); color: var(--muted); background: transparent;
+    transition: all .18s; font-family: var(--font-body);
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip.active { background: var(--accent); color: var(--black); border-color: var(--accent); font-weight: 600; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px;
+    border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
+    border: none; transition: all .18s; font-family: var(--font-body); letter-spacing: .02em;
+  }
+  .btn-primary { background: var(--accent); color: var(--black); }
+  .btn-primary:hover { background: #d8ff70; }
+  .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-outline { background: transparent; color: var(--white); border: 1px solid var(--border); }
+  .btn-outline:hover { border-color: var(--accent2); color: var(--accent2); }
+  .btn-outline:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-sm { padding: 7px 14px; font-size: 12px; }
+  .btn-full { width: 100%; justify-content: center; }
+  .btn-random { background: #1a1a2e; color: var(--accent2); border: 1px solid #2a2a4e; }
+  .btn-random:hover { background: #22224a; }
+
+  .output { display: flex; flex-direction: column; overflow: hidden; }
+  .output-tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 28px; }
+  .tab {
+    padding: 14px 18px; font-size: 12px; font-family: var(--font-mono); letter-spacing: .06em;
+    color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent;
+    transition: all .18s; background: none; border-top: none; border-left: none; border-right: none;
+  }
+  .tab:hover { color: var(--white); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .output-body { flex: 1; overflow-y: auto; padding: 28px; }
+
+  .placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; color: var(--muted); text-align: center; }
+  .placeholder .icon { font-size: 48px; opacity: .4; }
+  .placeholder p { font-size: 14px; max-width: 280px; line-height: 1.6; }
+
+  .loading { display: flex; align-items: center; gap: 12px; color: var(--accent); font-family: var(--font-mono); font-size: 13px; padding: 20px 0; }
+  .spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .topics-result { display: grid; gap: 10px; }
+  .topic-card { background: var(--mid); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; cursor: pointer; transition: all .18s; display: flex; align-items: flex-start; gap: 12px; }
+  .topic-card:hover { border-color: var(--accent); }
+  .topic-card.selected { border-color: var(--accent); background: #1a2200; }
+  .topic-emoji { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+  .topic-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .topic-why { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .topic-hook { font-size: 11px; color: var(--accent2); font-family: var(--font-mono); margin-top: 6px; }
+
+  .carousel-slides { display: grid; gap: 12px; }
+  .slide-card { background: var(--mid); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .slide-header { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--border); background: #161616; }
+  .slide-num { background: var(--accent); color: var(--black); font-family: var(--font-mono); font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 3px; }
+  .slide-type { font-size: 11px; color: var(--muted); font-family: var(--font-mono); letter-spacing: .06em; text-transform: uppercase; }
+  .slide-body { padding: 14px 16px; }
+  .slide-headline { font-family: var(--font-display); font-size: 17px; margin-bottom: 8px; line-height: 1.3; }
+  .slide-copy { font-size: 13px; color: #ccc; line-height: 1.65; }
+
+  /* VISUAL GRID */
+  .visual-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+  .slide-preview { aspect-ratio: 1; border-radius: 10px; overflow: hidden; position: relative; cursor: pointer; transition: transform .2s; }
+  .slide-preview:hover { transform: scale(1.02); }
+  .slide-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .slide-preview-overlay { position: absolute; inset: 0; padding: 16px; display: flex; flex-direction: column; justify-content: space-between; }
+  .slide-preview.generating { background: var(--mid); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
+
+  .export-bar { padding: 16px 28px; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .export-bar span { font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+
+  .progress { display: flex; align-items: center; gap: 6px; padding: 14px 28px; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: 11px; }
+  .prog-step { padding: 4px 10px; border-radius: 100px; color: var(--muted); border: 1px solid var(--border); }
+  .prog-step.done { color: var(--accent); border-color: var(--accent); }
+  .prog-step.active { background: var(--accent); color: var(--black); border-color: var(--accent); }
+  .prog-arrow { color: var(--border); }
+
+  .notice { background: #0f1a00; border: 1px solid #2a4000; border-radius: 6px; padding: 10px 14px; font-size: 12px; color: #afd060; font-family: var(--font-mono); margin-bottom: 16px; line-height: 1.5; }
+  .notice.info { background: #001a2a; border-color: #003344; color: #60c0e0; }
+  .notice.error { background: #2a0000; border-color: #440000; color: #e06060; }
+
+  /* RANDOM IDEA CARD */
+  .random-idea-card { background: #0d0d1a; border: 1px solid #2a2a4e; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .random-idea-card .idea-label { font-family: var(--font-mono); font-size: 10px; color: var(--accent2); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 8px; }
+  .random-idea-card .idea-title { font-family: var(--font-display); font-size: 20px; margin-bottom: 6px; line-height: 1.3; }
+  .random-idea-card .idea-desc { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 10px; }
+  .random-idea-card .idea-hook { font-size: 12px; color: var(--accent2); font-family: var(--font-mono); border-left: 2px solid var(--accent2); padding-left: 10px; line-height: 1.5; }
+
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--black); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* Worker URL config banner */
+  .config-banner { background: #1a0d00; border-bottom: 1px solid #3a2200; padding: 10px 32px; font-size: 12px; color: #e09040; font-family: var(--font-mono); display: flex; align-items: center; gap: 12px; }
+  .config-banner input { flex: 1; background: #2a1800; border: 1px solid #3a2200; color: #e09040; font-family: var(--font-mono); font-size: 12px; padding: 5px 10px; border-radius: 4px; }
+  .config-banner input:focus { border-color: var(--accent); color: var(--white); }
+  .config-banner button { background: var(--accent); color: var(--black); border: none; padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: var(--font-mono); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-badge">LEANTIL</div>
+  <h1>Carousel Generator</h1>
+  <span class="sub">LinkedIn · Powered by Claude + Gemini</span>
+</header>
+
+<!-- Worker URL config -->
+<div class="config-banner">
+  <span>⚙️ Worker URL:</span>
+  <input type="text" id="worker-url-input" placeholder="https://leantil-carousel-worker.TUO_NOME.workers.dev" />
+  <button onclick="saveWorkerUrl()">Salva</button>
+  <span id="worker-url-status" style="color:var(--muted)">non configurato</span>
+</div>
+
+<div class="app">
+
+  <!-- LEFT PANEL -->
+  <div class="panel">
+
+    <!-- STEP 0: Random Idea Generator -->
+    <div class="step">
+      <div class="step-label">✨ Bonus</div>
+      <h2>Idea Casuale</h2>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6;">
+        Clicca per generare un'idea di carousel basata sul sito LeanTil.
+      </p>
+      <button class="btn btn-random btn-full" id="btn-random" onclick="generateRandomIdea()">
+        🎲 Genera idea casuale
+      </button>
+    </div>
+
+    <!-- STEP 1: Topic Discovery -->
+    <div class="step">
+      <div class="step-label">Step 1</div>
+      <h2>Topic Discovery</h2>
+      <div class="field">
+        <label>FOCUS DEL CAROUSEL</label>
+        <select id="focus">
+          <option value="postura">Postura & salute</option>
+          <option value="produttivita">Produttività & lavoro</option>
+          <option value="tech">Tech & smart working</option>
+          <option value="abitudini">Abitudini & benessere</option>
+          <option value="startup">Startup & prodotto</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>CONTESTO / STAGIONALITÀ (opzionale)</label>
+        <input id="context" type="text" placeholder="es. rientro post-vacanze, inizio anno…" />
+      </div>
+      <div class="field">
+        <label>TONO</label>
+        <div class="topics-grid" id="tone-chips">
+          <button class="chip active" data-val="educational">📚 Educativo</button>
+          <button class="chip" data-val="provocatorio">🔥 Provocatorio</button>
+          <button class="chip" data-val="empatico">💬 Empatico</button>
+          <button class="chip" data-val="dati">📊 Dati & fatti</button>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full" id="btn-topics" onclick="discoverTopics()">
+        ⚡ Trova 5 topic
+      </button>
+    </div>
+
+    <!-- STEP 2: Content Generation -->
+    <div class="step">
+      <div class="step-label">Step 2</div>
+      <h2>Content Generation</h2>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6;">
+        Seleziona un topic dalla lista →, poi genera la struttura delle slide.
+      </p>
+      <div class="field">
+        <label>TOPIC SELEZIONATO</label>
+        <input id="selected-topic-display" type="text" placeholder="Scegli un topic a destra…" readonly style="cursor:default;" />
+      </div>
+      <div class="field">
+        <label>N° SLIDE</label>
+        <select id="num-slides">
+          <option value="5">5 slide</option>
+          <option value="6" selected>6 slide</option>
+          <option value="7">7 slide</option>
+        </select>
+      </div>
+      <button class="btn btn-primary btn-full" id="btn-content" onclick="generateContent()" disabled>
+        ✍️ Genera struttura
+      </button>
+    </div>
+
+    <!-- STEP 3: Visual Generation con Gemini -->
+    <div class="step">
+      <div class="step-label">Step 3 · Gemini Imagen</div>
+      <h2>Visual Generation</h2>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6;">
+        Genera immagini reali per ogni slide con Gemini Imagen. Richiede il Worker configurato.
+      </p>
+      <div class="field">
+        <label>STILE VISIVO</label>
+        <div class="topics-grid" id="style-chips">
+          <button class="chip active" data-val="minimalist dark">🌑 Minimal dark</button>
+          <button class="chip" data-val="clean light">☀️ Clean light</button>
+          <button class="chip" data-val="bold typographic">🔤 Bold type</button>
+          <button class="chip" data-val="photographic">📷 Photo</button>
+        </div>
+      </div>
+      <button class="btn btn-outline btn-full" id="btn-visual" onclick="generateGeminiVisuals()" disabled>
+        🎨 Genera con Gemini
+      </button>
+      <p style="font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5;">
+        Genera 1 immagine alla volta — attendi il completamento.
+      </p>
+    </div>
+
+  </div><!-- /panel -->
+
+  <!-- RIGHT PANEL -->
+  <div class="output">
+
+    <div class="progress">
+      <span class="prog-step active" id="prog1">1 · TOPIC</span>
+      <span class="prog-arrow">›</span>
+      <span class="prog-step" id="prog2">2 · CONTENT</span>
+      <span class="prog-arrow">›</span>
+      <span class="prog-step" id="prog3">3 · VISUAL</span>
+    </div>
+
+    <div class="output-tabs">
+      <button class="tab active" onclick="switchTab('topics', this)">💡 Topic</button>
+      <button class="tab" onclick="switchTab('content', this)">✍️ Struttura</button>
+      <button class="tab" onclick="switchTab('visual', this)">🎨 Visual</button>
+    </div>
+
+    <div class="output-body" id="output-body">
+      <div class="placeholder">
+        <div class="icon">🪑</div>
+        <p>Inizia con <strong>"Genera idea casuale"</strong> per ispirazione, oppure scegli focus e tono e clicca <strong>"Trova 5 topic"</strong>.</p>
+      </div>
+    </div>
+
+    <div class="export-bar" id="export-bar" style="display:none">
+      <span id="export-label">Carousel pronto</span>
+      <button class="btn btn-primary btn-sm" onclick="copyText()">📋 Copia testo</button>
+      <button class="btn btn-outline btn-sm" onclick="downloadImages()" id="btn-download-images" style="display:none">💾 Scarica immagini</button>
+    </div>
+
+  </div><!-- /output -->
+
+</div><!-- /app -->
+
+<script>
+// ─────────────────────────────────────────
+// CONFIG
+// ─────────────────────────────────────────
+
+// Dati del sito LeanTil (estratti) – usati per il random idea generator
+const LEANTIL_CONTEXT = `
+LeanTil è un cuscino smart per la postura. Rileva in tempo reale come si distribuisce il peso sulla seduta e invia un feedback visivo discreto quando rileva postura scorretta prolungata.
+
+Pubblico target: remote worker, smart worker, chi lavora alla scrivania 8+ ore al giorno.
+Piattaforma: LinkedIn.
+Obiettivo: brand awareness + iscrizioni beta + educazione sulla postura.
+Fondatrice: Caterina Grimaldi, nata dal COVID-19 (troppe ore allo schermo).
+Valori del brand: discrezione, efficacia, abitudini durature, benessere mentale e fisico.
+Benefici chiave:
+- Meno tensione su collo e spalle correggendo i piccoli slouch prima che diventino dolore
+- Più energia mentale: postura aperta migliora ossigenazione e concentrazione
+- Abitudini durature: allena il corpo a riconoscere la posizione corretta nel tempo
+Prodotto in beta privata, posti limitati.
+`;
+
+const RANDOM_TOPICS_POOL = [
+  "il costo nascosto della cattiva postura sulla produttività",
+  "perché i reminder della postura non funzionano (e cosa funziona invece)",
+  "come 8 ore seduti cambiano il tuo corpo",
+  "la scienza del feedback visivo vs sonoro per le abitudini",
+  "smart working e salute: quello che nessuno ti dice",
+  "3 segnali che la tua sedia da lavoro ti sta danneggiando",
+  "postura e stato mentale: il collegamento che ignori",
+  "perché i millennial hanno più mal di schiena dei loro genitori",
+  "da problema a prodotto: la storia di LeanTil",
+  "il paradosso del lavoratore remoto: più libertà, più dolori",
+  "come creare un'abitudine sostenibile in 30 giorni",
+  "la postazione perfetta non esiste (ma esiste quella giusta per te)",
+];
+
+let state = {
+  tone: 'educational',
+  visualStyle: 'minimalist dark',
+  selectedTopic: null,
+  topics: [],
+  slides: [],
+  geminiImages: [],
+  workerUrl: localStorage.getItem('leantil_worker_url') || '',
+  currentTab: 'topics'
+};
+
+// ─────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  if (state.workerUrl) {
+    document.getElementById('worker-url-input').value = state.workerUrl;
+    document.getElementById('worker-url-status').textContent = '✓ configurato';
+    document.getElementById('worker-url-status').style.color = 'var(--accent)';
+  }
+});
+
+function saveWorkerUrl() {
+  const url = document.getElementById('worker-url-input').value.trim().replace(/\/$/, '');
+  state.workerUrl = url;
+  localStorage.setItem('leantil_worker_url', url);
+  const status = document.getElementById('worker-url-status');
+  status.textContent = url ? '✓ salvato' : 'rimosso';
+  status.style.color = url ? 'var(--accent)' : 'var(--muted)';
+}
+
+// ─────────────────────────────────────────
+// API HELPER
+// ─────────────────────────────────────────
+async function callAnthropicViaWorker(messages, maxTokens = 1500) {
+  if (!state.workerUrl) throw new Error('Worker URL non configurato. Inserisci l\'URL del tuo Cloudflare Worker.');
+  const res = await fetch(`${state.workerUrl}/anthropic`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: maxTokens,
+      messages
+    })
+  });
+  if (!res.ok) throw new Error(`Worker error ${res.status}`);
+  const data = await res.json();
+  if (data.error) throw new Error(JSON.stringify(data.error));
+  return data.content.map(b => b.text || '').join('');
+}
+
+async function callGeminiViaWorker(prompt) {
+  if (!state.workerUrl) throw new Error('Worker URL non configurato.');
+  const res = await fetch(`${state.workerUrl}/gemini`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt })
+  });
+  if (!res.ok) throw new Error(`Gemini worker error ${res.status}`);
+  const data = await res.json();
+  if (data.error) throw new Error(JSON.stringify(data.error));
+  return data; // { imageBase64, mimeType }
+}
+
+// ─────────────────────────────────────────
+// CHIP TOGGLES
+// ─────────────────────────────────────────
+document.getElementById('tone-chips').addEventListener('click', e => {
+  if (!e.target.classList.contains('chip')) return;
+  document.querySelectorAll('#tone-chips .chip').forEach(c => c.classList.remove('active'));
+  e.target.classList.add('active');
+  state.tone = e.target.dataset.val;
+});
+document.getElementById('style-chips').addEventListener('click', e => {
+  if (!e.target.classList.contains('chip')) return;
+  document.querySelectorAll('#style-chips .chip').forEach(c => c.classList.remove('active'));
+  e.target.classList.add('active');
+  state.visualStyle = e.target.dataset.val;
+});
+
+// ─────────────────────────────────────────
+// TAB SWITCH
+// ─────────────────────────────────────────
+function switchTab(tab, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  state.currentTab = tab;
+  if (tab === 'topics') renderTopics();
+  else if (tab === 'content') renderSlides();
+  else if (tab === 'visual') renderVisualGrid();
+}
+
+// ─────────────────────────────────────────
+// PROGRESS
+// ─────────────────────────────────────────
+function setProgress(step) {
+  for (let i = 1; i <= 3; i++) {
+    const el = document.getElementById('prog' + i);
+    el.className = 'prog-step';
+    if (i < step) el.classList.add('done');
+    else if (i === step) el.classList.add('active');
+  }
+}
+
+// ─────────────────────────────────────────
+// ✨ RANDOM IDEA GENERATOR
+// ─────────────────────────────────────────
+async function generateRandomIdea() {
+  const btn = document.getElementById('btn-random');
+  btn.disabled = true; btn.textContent = '⏳ Generando…';
+
+  // Switch to topics tab
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab')[0].classList.add('active');
+  state.currentTab = 'topics';
+
+  showLoading('Inventando un\'idea originale per LeanTil…');
+
+  const randomSeed = RANDOM_TOPICS_POOL[Math.floor(Math.random() * RANDOM_TOPICS_POOL.length)];
+  const randomAngle = ['provocatorio', 'empatico', 'dati e statistiche', 'storytelling personale', 'contro-intuitivo'][Math.floor(Math.random() * 5)];
+
+  const prompt = `Sei un content strategist esperto di LinkedIn per brand B2C wellness/tech.
+
+${LEANTIL_CONTEXT}
+
+Genera UNA singola idea brillante e originale per un carousel LinkedIn di LeanTil.
+Spunto casuale da cui partire: "${randomSeed}"
+Angolo narrativo: ${randomAngle}
+
+Sii creativo, inaspettato, evita i cliché del wellness. L'idea deve fermare lo scroll.
+
+Rispondi SOLO in JSON:
+{
+  "emoji": "emoji singola",
+  "title": "titolo del topic (max 8 parole, impattante)",
+  "description": "perché questa idea funziona per LeanTil su LinkedIn (2-3 frasi)",
+  "hook": "prima slide – testo che ferma lo scroll (max 15 parole, inizia con un dato, domanda o affermazione forte)",
+  "cta": "call to action finale consigliata per questo carousel"
+}`;
+
+  try {
+    const raw = await callAnthropicViaWorker([{ role: 'user', content: prompt }], 600);
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const idea = JSON.parse(clean);
+
+    document.getElementById('output-body').innerHTML = `
+      <div class="random-idea-card">
+        <div class="idea-label">💡 Idea casuale · ${randomAngle}</div>
+        <div class="idea-title">${idea.emoji} ${idea.title}</div>
+        <div class="idea-desc">${idea.description}</div>
+        <div class="idea-hook">"${idea.hook}"</div>
+        ${idea.cta ? `<div style="margin-top:10px;font-size:12px;color:var(--muted)">CTA → ${idea.cta}</div>` : ''}
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
+        <button class="btn btn-primary btn-sm" onclick="useRandomIdea('${encodeURIComponent(JSON.stringify(idea))}')">
+          ✓ Usa questa idea
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="generateRandomIdea()">
+          🎲 Altra idea
+        </button>
+      </div>`;
+  } catch(e) {
+    showError('Errore: ' + e.message);
+  }
+
+  btn.disabled = false; btn.textContent = '🎲 Genera idea casuale';
+}
+
+function useRandomIdea(encodedIdea) {
+  const idea = JSON.parse(decodeURIComponent(encodedIdea));
+  // Inietta come topic selezionato direttamente
+  state.topics = [{
+    emoji: idea.emoji,
+    title: idea.title,
+    why: idea.description,
+    hook: idea.hook
+  }];
+  state.selectedTopic = 0;
+  document.getElementById('selected-topic-display').value = idea.title;
+  document.getElementById('btn-content').disabled = false;
+  renderTopics();
+  // Scroll panel to step 2
+  document.querySelector('.panel').scrollTo({ top: 300, behavior: 'smooth' });
+}
+
+// ─────────────────────────────────────────
+// STEP 1: TOPIC DISCOVERY
+// ─────────────────────────────────────────
+async function discoverTopics() {
+  const focus = document.getElementById('focus').value;
+  const context = document.getElementById('context').value;
+
+  const btn = document.getElementById('btn-topics');
+  btn.disabled = true; btn.textContent = '⏳ Ricerca…';
+  showLoading('Analizzando il contesto LeanTil…');
+
+  const prompt = `Sei un esperto di content marketing LinkedIn per brand B2C/B2B nel settore salute & produttività.
+
+${LEANTIL_CONTEXT}
+
+Genera esattamente 5 idee di topic per un carousel LinkedIn:
+- Focus: ${focus}
+- Tono: ${state.tone}
+- Contesto aggiuntivo: ${context || 'nessuno'}
+
+Rispondi SOLO in JSON senza markdown:
+{
+  "topics": [
+    {
+      "emoji": "emoji singola",
+      "title": "titolo breve (max 8 parole)",
+      "why": "perché funziona per LeanTil (1 frase)",
+      "hook": "prima riga slide 1 – ferma lo scroll (max 12 parole)"
+    }
+  ]
+}`;
+
+  try {
+    const raw = await callAnthropicViaWorker([{ role: 'user', content: prompt }]);
+    const clean = raw.replace(/```json|```/g, '').trim();
+    state.topics = JSON.parse(clean).topics;
+    renderTopics();
+    setProgress(2);
+  } catch(e) {
+    showError('Errore: ' + e.message);
+  }
+
+  btn.disabled = false; btn.textContent = '⚡ Trova 5 topic';
+}
+
+function renderTopics() {
+  if (!state.topics.length) return;
+  const body = document.getElementById('output-body');
+  body.innerHTML = `
+    <div class="notice">💡 Clicca su un topic per selezionarlo, poi vai allo step 2.</div>
+    <div class="topics-result">
+      ${state.topics.map((t, i) => `
+        <div class="topic-card ${state.selectedTopic === i ? 'selected' : ''}" onclick="selectTopic(${i})">
+          <div class="topic-emoji">${t.emoji}</div>
+          <div>
+            <div class="topic-title">${t.title}</div>
+            <div class="topic-why">${t.why}</div>
+            <div class="topic-hook">Hook: "${t.hook}"</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+function selectTopic(i) {
+  state.selectedTopic = i;
+  document.getElementById('selected-topic-display').value = state.topics[i].title;
+  document.getElementById('btn-content').disabled = false;
+  renderTopics();
+}
+
+// ─────────────────────────────────────────
+// STEP 2: CONTENT GENERATION
+// ─────────────────────────────────────────
+async function generateContent() {
+  if (state.selectedTopic === null) return;
+  const topic = state.topics[state.selectedTopic];
+  const numSlides = parseInt(document.getElementById('num-slides').value);
+
+  const btn = document.getElementById('btn-content');
+  btn.disabled = true; btn.textContent = '⏳ Generazione…';
+  showLoading('Strutturando le slide del carousel…');
+
+  const prompt = `Sei un copywriter esperto di carousel LinkedIn per LeanTil (cuscino smart per la postura, beta aperta, target: remote worker italiani).
+
+Genera la struttura completa di un carousel di ${numSlides} slide sul topic: "${topic.title}"
+Hook della slide 1: "${topic.hook}"
+Tono: ${state.tone}
+
+REGOLE:
+- Slide 1: Hook fortissimo, sottotitolo intrigante
+- Slide 2–${numSlides - 1}: contenuto di valore (dati, consigli, insight pratici) – una slide = un concetto
+- Ultima slide: CTA chiara verso la beta LeanTil (leantil.com)
+
+Rispondi SOLO in JSON:
+{
+  "slides": [
+    {
+      "num": 1,
+      "type": "HOOK",
+      "headline": "testo principale",
+      "copy": "testo di supporto (max 30 parole)",
+      "gemini_prompt": "prompt in inglese per generare con Gemini un'immagine LinkedIn per questa slide: stile, soggetto, mood (max 50 parole, NO testo nell'immagine)"
+    }
+  ]
+}`;
+
+  try {
+    const raw = await callAnthropicViaWorker([{ role: 'user', content: prompt }], 2000);
+    const clean = raw.replace(/```json|```/g, '').trim();
+    state.slides = JSON.parse(clean).slides;
+    state.geminiImages = new Array(state.slides.length).fill(null);
+
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab')[1].classList.add('active');
+    state.currentTab = 'content';
+    renderSlides();
+    setProgress(3);
+    document.getElementById('btn-visual').disabled = false;
+    document.getElementById('export-bar').style.display = 'flex';
+    document.getElementById('export-label').textContent = `${state.slides.length} slide pronte`;
+  } catch(e) {
+    showError('Errore: ' + e.message);
+  }
+
+  btn.disabled = false; btn.textContent = '✍️ Genera struttura';
+}
+
+function renderSlides() {
+  if (!state.slides.length) {
+    document.getElementById('output-body').innerHTML = `<div class="placeholder"><div class="icon">✍️</div><p>Genera prima la struttura allo step 2.</p></div>`;
+    return;
+  }
+  const typeColors = { 'HOOK':'#c8f060','INSIGHT':'#60d0f0','TIP':'#f0c860','DATO':'#d060f0','CTA':'#f06060','PROBLEMA':'#f09060','SOLUZIONE':'#60f0b0' };
+  document.getElementById('output-body').innerHTML = `
+    <div class="carousel-slides">
+      ${state.slides.map(s => {
+        const col = typeColors[s.type] || '#888';
+        return `
+        <div class="slide-card">
+          <div class="slide-header">
+            <div class="slide-num">${s.num}</div>
+            <div class="slide-type" style="color:${col}">${s.type}</div>
+            ${s.gemini_prompt ? `<div style="margin-left:auto;font-size:10px;color:#555;font-style:italic;max-width:200px;text-align:right;line-height:1.4">${s.gemini_prompt.slice(0,60)}…</div>` : ''}
+          </div>
+          <div class="slide-body">
+            <div class="slide-headline">${s.headline}</div>
+            <div class="slide-copy">${s.copy}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// ─────────────────────────────────────────
+// STEP 3: GEMINI IMAGEN
+// ─────────────────────────────────────────
+async function generateGeminiVisuals() {
+  if (!state.slides.length) return;
+
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab')[2].classList.add('active');
+  state.currentTab = 'visual';
+
+  renderVisualGrid(true); // show loading state
+
+  const btn = document.getElementById('btn-visual');
+  btn.disabled = true; btn.textContent = '⏳ Generando immagini…';
+
+  for (let i = 0; i < state.slides.length; i++) {
+    const slide = state.slides[i];
+    const basePrompt = slide.gemini_prompt || `LinkedIn carousel slide for LeanTil posture smart cushion, ${state.visualStyle} style, professional, clean`;
+    const fullPrompt = `${basePrompt}. Style: ${state.visualStyle}. Square format 1:1. No text, no words, no letters. Professional LinkedIn content. Minimalist, high quality.`;
+
+    // Update UI: this slide is loading
+    updateSlideVisual(i, 'loading');
+
+    try {
+      const result = await callGeminiViaWorker(fullPrompt);
+      state.geminiImages[i] = result;
+      updateSlideVisual(i, 'done', result);
+    } catch(e) {
+      state.geminiImages[i] = { error: e.message };
+      updateSlideVisual(i, 'error', null, e.message);
+    }
+
+    // Piccola pausa tra le chiamate per evitare rate limiting
+    if (i < state.slides.length - 1) await sleep(800);
+  }
+
+  btn.disabled = false; btn.textContent = '🎨 Rigenera visual';
+
+  // Mostra pulsante download se ci sono immagini
+  const hasImages = state.geminiImages.some(img => img && img.imageBase64);
+  if (hasImages) {
+    document.getElementById('btn-download-images').style.display = 'inline-flex';
+  }
+}
+
+function renderVisualGrid(loadingState = false) {
+  if (!state.slides.length) {
+    document.getElementById('output-body').innerHTML = `<div class="placeholder"><div class="icon">🎨</div><p>Genera prima la struttura del contenuto.</p></div>`;
+    return;
+  }
+  const body = document.getElementById('output-body');
+  body.innerHTML = `
+    <div class="notice info">🎨 Immagini generate con Gemini Imagen · Stile: ${state.visualStyle}</div>
+    <div class="visual-grid" id="visual-grid">
+      ${state.slides.map((s, i) => buildVisualSlot(s, i, loadingState)).join('')}
+    </div>`;
+}
+
+function buildVisualSlot(slide, idx, loading = false) {
+  const img = state.geminiImages[idx];
+  if (loading || !img) {
+    return `<div class="slide-preview generating" id="vslot-${idx}">
+      <div class="spinner"></div>
+      <div>Slide ${slide.num}</div>
+    </div>`;
+  }
+  if (img.error) {
+    return `<div class="slide-preview" id="vslot-${idx}" style="background:#1a0000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;padding:12px">
+      <div style="font-size:10px;color:#f06060;font-family:var(--font-mono);text-align:center">⚠️ Errore<br>${img.error.slice(0,60)}</div>
+    </div>`;
+  }
+  return `<div class="slide-preview" id="vslot-${idx}" onclick="openImageModal(${idx})">
+    <img src="data:${img.mimeType};base64,${img.imageBase64}" alt="Slide ${slide.num}" />
+    <div class="slide-preview-overlay" style="background:linear-gradient(to top, rgba(0,0,0,.7) 0%, transparent 50%)">
+      <div style="display:flex;justify-content:flex-end">
+        <div style="background:var(--accent);color:var(--black);font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;font-family:monospace">${slide.type}</div>
+      </div>
+      <div style="font-family:'DM Serif Display',serif;font-size:12px;color:white;line-height:1.3">${slide.headline.slice(0,50)}${slide.headline.length > 50 ? '…' : ''}</div>
+    </div>
+  </div>`;
+}
+
+function updateSlideVisual(idx, state_type, data, errorMsg) {
+  const slot = document.getElementById(`vslot-${idx}`);
+  if (!slot) return;
+  const slide = state.slides[idx];
+
+  if (state_type === 'loading') {
+    slot.className = 'slide-preview generating';
+    slot.innerHTML = `<div class="spinner"></div><div style="font-size:11px;color:var(--accent2);font-family:var(--font-mono)">Slide ${slide.num}…</div>`;
+  } else if (state_type === 'done' && data?.imageBase64) {
+    slot.className = 'slide-preview';
+    slot.onclick = () => openImageModal(idx);
+    slot.innerHTML = `
+      <img src="data:${data.mimeType};base64,${data.imageBase64}" alt="Slide ${slide.num}" />
+      <div class="slide-preview-overlay" style="background:linear-gradient(to top,rgba(0,0,0,.7) 0%,transparent 50%)">
+        <div style="display:flex;justify-content:flex-end">
+          <div style="background:var(--accent);color:var(--black);font-size:9px;font-weight:700;padding:2px 7px;border-radius:3px;font-family:monospace">${slide.type}</div>
+        </div>
+        <div style="font-family:'DM Serif Display',serif;font-size:12px;color:white;line-height:1.3">${slide.headline.slice(0,50)}${slide.headline.length > 50 ? '…' : ''}</div>
+      </div>`;
+  } else {
+    slot.className = 'slide-preview';
+    slot.style.cssText = 'background:#1a0000;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;padding:12px';
+    slot.innerHTML = `<div style="font-size:10px;color:#f06060;font-family:var(--font-mono);text-align:center">⚠️ ${(errorMsg || 'Errore').slice(0,60)}</div>`;
+  }
+}
+
+function openImageModal(idx) {
+  const img = state.geminiImages[idx];
+  const slide = state.slides[idx];
+  if (!img?.imageBase64) return;
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:1000;display:flex;align-items:center;justify-content:center;cursor:pointer;';
+  overlay.onclick = () => overlay.remove();
+
+  overlay.innerHTML = `
+    <div style="max-width:600px;width:90%;cursor:default;" onclick="event.stopPropagation()">
+      <img src="data:${img.mimeType};base64,${img.imageBase64}" style="width:100%;border-radius:12px;display:block;" />
+      <div style="margin-top:12px;display:flex;align-items:center;gap:12px;justify-content:space-between;">
+        <div>
+          <div style="font-family:'DM Serif Display',serif;font-size:16px;color:white">${slide.headline}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">${slide.copy}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+          <button onclick="downloadSingleImage(${idx})" style="background:var(--accent);color:var(--black);border:none;padding:8px 14px;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;">💾 Scarica</button>
+          <button onclick="this.closest('[style*=fixed]').remove()" style="background:none;border:1px solid var(--border);color:var(--white);padding:8px 14px;border-radius:6px;font-size:12px;cursor:pointer;">✕</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function downloadSingleImage(idx) {
+  const img = state.geminiImages[idx];
+  if (!img?.imageBase64) return;
+  const a = document.createElement('a');
+  a.href = `data:${img.mimeType};base64,${img.imageBase64}`;
+  a.download = `leantil-slide-${idx + 1}.png`;
+  a.click();
+}
+
+function downloadImages() {
+  state.geminiImages.forEach((img, i) => {
+    if (img?.imageBase64) downloadSingleImage(i);
+  });
+}
+
+// ─────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────
+function showLoading(msg) {
+  document.getElementById('output-body').innerHTML = `<div class="loading"><div class="spinner"></div>${msg}</div>`;
+}
+function showError(msg) {
+  document.getElementById('output-body').innerHTML = `<div class="notice error">⚠️ ${msg}</div>`;
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function copyText() {
+  if (!state.slides.length) return;
+  const text = state.slides.map(s => `=== SLIDE ${s.num} · ${s.type} ===\n${s.headline}\n${s.copy}`).join('\n\n');
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.export-bar .btn-primary');
+    const orig = btn.textContent;
+    btn.textContent = '✅ Copiato!';
+    setTimeout(() => btn.textContent = orig, 1500);
+  });
+}
+</script>
+</body>
+</html>
