@@ -321,19 +321,22 @@
 // ─────────────────────────────────────────
 const WORKER_URL = "https://carousel.fumettiastro.workers.dev";
 
-// Helper per estrarre solo il JSON da una risposta Gemini
 function extractJSON(raw) {
-  let s = raw.replace(/```json\s*/gi, "").replace(/```\s*/gi, "").trim();
-  const firstBrace = s.indexOf("{");
-  const firstBracket = s.indexOf("[");
-  let start = -1;
-  let endChar = "";
-  if (firstBrace === -1 && firstBracket === -1) throw new Error("Nessun JSON trovato nella risposta");
-  if (firstBrace === -1) { start = firstBracket; endChar = "]"; }
-  else if (firstBracket === -1) { start = firstBrace; endChar = "}"; }
-  else { start = Math.min(firstBrace, firstBracket); endChar = start === firstBrace ? "}" : "]"; }
+  // Rimuovi eventuali blocchi <think>...</think> (Gemini 2.5)
+  let s = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  // Rimuovi markdown code block
+  s = s.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
+
+  const firstBrace = s.indexOf('{');
+  const firstBracket = s.indexOf('[');
+  let start = -1, endChar = '';
+  if (firstBrace === -1 && firstBracket === -1) throw new Error('Nessun JSON trovato nella risposta');
+  if (firstBrace === -1) { start = firstBracket; endChar = ']'; }
+  else if (firstBracket === -1) { start = firstBrace; endChar = '}'; }
+  else { start = Math.min(firstBrace, firstBracket); endChar = start === firstBrace ? '}' : ']'; }
+
   const end = s.lastIndexOf(endChar);
-  if (end === -1 || end <= start) throw new Error("JSON malformato o troncato — prova a rigenerare");
+  if (end === -1 || end <= start) throw new Error('JSON malformato o troncato — prova a rigenerare');
   return s.slice(start, end + 1);
 }
 
