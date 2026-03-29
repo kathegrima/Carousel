@@ -452,7 +452,8 @@ Spunto casuale da cui partire: "${randomSeed}"
 Angolo narrativo: ${randomAngle}
 
 Sii creativo, inaspettato, evita i cliché del wellness. L'idea deve fermare lo scroll.
-
+"USA SOLO dati reali e verificabili (OMS, studi pubblicati, fonti note). " +
+"NON inventare percentuali o statistiche. Se non hai dati certi, usa affermazioni qualitative."
 Rispondi SOLO in JSON valido, senza markdown:
 {
   "emoji": "emoji singola",
@@ -466,6 +467,7 @@ Rispondi SOLO in JSON valido, senza markdown:
     const raw = await callGeminiText([{ role: 'user', content: prompt }], 600);
     const clean = raw.replace(/```json|```/g, '').trim();
     const idea = JSON.parse(clean);
+    state.lastRandomIdea = idea;
 
     document.getElementById('output-body').innerHTML = `
       <div class="random-idea-card">
@@ -476,7 +478,7 @@ Rispondi SOLO in JSON valido, senza markdown:
         ${idea.cta ? `<div style="margin-top:10px;font-size:12px;color:var(--muted)">CTA → ${idea.cta}</div>` : ''}
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
-        <button class="btn btn-primary btn-sm" onclick="useRandomIdea('${encodeURIComponent(JSON.stringify(idea))}')">
+        <button class="btn btn-primary btn-sm" onclick="useRandomIdea()">
           ✓ Usa questa idea
         </button>
         <button class="btn btn-outline btn-sm" onclick="generateRandomIdea()">
@@ -490,15 +492,22 @@ Rispondi SOLO in JSON valido, senza markdown:
   btn.disabled = false; btn.textContent = '🎲 Genera idea casuale';
 }
 
-function useRandomIdea(encodedIdea) {
-  const idea = JSON.parse(decodeURIComponent(encodedIdea));
+function useRandomIdea() {
+  const idea = state.lastRandomIdea;
+  if (!idea) return;
   state.topics = [{ emoji: idea.emoji, title: idea.title, why: idea.description, hook: idea.hook }];
   state.selectedTopic = 0;
   document.getElementById('selected-topic-display').value = idea.title;
   document.getElementById('btn-content').disabled = false;
   renderTopics();
+  // Switcha al tab topic e scrolla al panel
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab')[0].classList.add('active');
+  state.currentTab = 'topics';
+  renderTopics();
   document.querySelector('.panel').scrollTo({ top: 300, behavior: 'smooth' });
 }
+
 
 // ─────────────────────────────────────────
 // STEP 1: TOPIC DISCOVERY
@@ -515,7 +524,8 @@ async function discoverTopics() {
 ${LEANTIL_CONTEXT}
 Genera 5 topic carousel. Focus: ${focus}. Tono: ${state.tone}.${context ? ` Contesto: ${context}.` : ''}
 JSON valido senza markdown: { "topics": [{ "emoji","title","why","hook" }] }`
-
+"USA SOLO dati reali e verificabili (OMS, studi pubblicati, fonti note). " +
+"NON inventare percentuali o statistiche. Se non hai dati certi, usa affermazioni qualitative."
   try {
     const raw = await callGeminiText([{ role: 'user', content: prompt }], 500);
     const clean = raw.replace(/```json|```/g, '').trim();
@@ -567,7 +577,15 @@ async function generateContent() {
   btn.disabled = true; btn.textContent = '⏳ Generazione…';
   showLoading('Strutturando le slide del carousel…');
 
-  const prompt = `Sei un copywriter esperto di carousel LinkedIn per LeanTil (cuscino smart per la postura, beta aperta, target: remote worker italiani).
+  const prompt = `Sei un copywriter esperto di carousel LinkedIn per LeanTil...
+
+REGOLE:
+- Slide 1: Hook fortissimo, sottotitolo intrigante
+- Slide 2–${numSlides - 1}: contenuto di valore – una slide = un concetto
+- Ultima slide: CTA verso leantil.com
+- USA SOLO dati e statistiche reali (es. OMS, studi ergonomici pubblicati). NON inventare numeri.
+- Se citi una fonte, deve essere reale e verificabile.
+...`;
 
 Genera la struttura completa di un carousel di ${numSlides} slide sul topic: "${topic.title}"
 Hook della slide 1: "${topic.hook}"
