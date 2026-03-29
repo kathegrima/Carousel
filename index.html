@@ -351,6 +351,40 @@ let state = {
   currentTab: 'topics'
 };
 
+// Helper robusto per estrarre solo il JSON dalla risposta Gemini
+function extractJSON(raw) {
+  // Rimuovi eventuali fence markdown
+  let s = raw.replace(/```json\s*/gi, '').replace(/```\s*/gi, '').trim();
+  const firstBrace = s.indexOf('{');
+  const firstBracket = s.indexOf('[');
+  let start = -1;
+  let endChar = '';
+
+  if (firstBrace === -1 && firstBracket === -1) {
+    throw new Error('Nessun JSON trovato nella risposta del modello');
+  }
+  if (firstBrace === -1) {
+    start = firstBracket;
+    endChar = ']';
+  } else if (firstBracket === -1) {
+    start = firstBrace;
+    endChar = '}';
+  } else {
+    if (firstBrace < firstBracket) {
+      start = firstBrace;
+      endChar = '}';
+    } else {
+      start = firstBracket;
+      endChar = ']';
+    }
+  }
+  const end = s.lastIndexOf(endChar);
+  if (end === -1 || end <= start) {
+    throw new Error('JSON malformato o troncato — prova a rigenerare');
+  }
+  return s.slice(start, end + 1);
+}
+
 // ─────────────────────────────────────────
 // API HELPERS — solo Gemini
 // ─────────────────────────────────────────
@@ -466,7 +500,7 @@ Rispondi SOLO in JSON valido, senza markdown:
 
   try {
     const raw = await callGeminiText([{ role: 'user', content: prompt }], 1000);
-    const clean = raw.replace(/```json|```/g, '').trim();
+    const clean = extractJSON(raw);
     const idea = JSON.parse(clean);
     state.lastRandomIdea = idea;
 
@@ -543,8 +577,8 @@ Rispondi SOLO in JSON valido, senza markdown, con questa struttura:
 }`;
 
   try {
-    const raw = await callGeminiText([{ role: 'user', content: prompt }], 500);
-    const clean = raw.replace(/```json|```/g, '').trim();
+    const raw = await callGeminiText([{ role: 'user', content: prompt }], 1200);
+    const clean = extractJSON(raw);
     state.topics = JSON.parse(clean).topics;
     renderTopics();
     setProgress(2);
@@ -624,8 +658,8 @@ Rispondi SOLO in JSON valido, senza markdown, con questa struttura esatta:
 }`;
 
   try {
-    const raw = await callGeminiText([{ role: 'user', content: prompt }], 1200);
-    const clean = raw.replace(/```json|```/g, '').trim();
+    const raw = await callGeminiText([{ role: 'user', content: prompt }], 2500);
+    const clean = extractJSON(raw);
     state.slides = JSON.parse(clean).slides;
     state.geminiImages = new Array(state.slides.length).fill(null);
 
