@@ -18,9 +18,6 @@
     --font-display: 'DM Serif Display', serif;
     --font-body: 'DM Sans', sans-serif;
     --font-mono: 'Space Mono', monospace;
-
-    /* ⚙️ CAMBIA QUESTO con l'URL del tuo Worker Cloudflare dopo il deploy */
-    --worker-url: "https://leantil-carousel-worker.TUO_NOME.workers.dev";
   }
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -146,7 +143,6 @@
   .slide-headline { font-family: var(--font-display); font-size: 17px; margin-bottom: 8px; line-height: 1.3; }
   .slide-copy { font-size: 13px; color: #ccc; line-height: 1.65; }
 
-  /* VISUAL GRID */
   .visual-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
   .slide-preview { aspect-ratio: 1; border-radius: 10px; overflow: hidden; position: relative; cursor: pointer; transition: transform .2s; }
   .slide-preview:hover { transform: scale(1.02); }
@@ -167,7 +163,6 @@
   .notice.info { background: #001a2a; border-color: #003344; color: #60c0e0; }
   .notice.error { background: #2a0000; border-color: #440000; color: #e06060; }
 
-  /* RANDOM IDEA CARD */
   .random-idea-card { background: #0d0d1a; border: 1px solid #2a2a4e; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
   .random-idea-card .idea-label { font-family: var(--font-mono); font-size: 10px; color: var(--accent2); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 8px; }
   .random-idea-card .idea-title { font-family: var(--font-display); font-size: 20px; margin-bottom: 6px; line-height: 1.3; }
@@ -177,12 +172,6 @@
   ::-webkit-scrollbar { width: 5px; }
   ::-webkit-scrollbar-track { background: var(--black); }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-  /* Worker URL config banner */
-  .config-banner { background: #1a0d00; border-bottom: 1px solid #3a2200; padding: 10px 32px; font-size: 12px; color: #e09040; font-family: var(--font-mono); display: flex; align-items: center; gap: 12px; }
-  .config-banner input { flex: 1; background: #2a1800; border: 1px solid #3a2200; color: #e09040; font-family: var(--font-mono); font-size: 12px; padding: 5px 10px; border-radius: 4px; }
-  .config-banner input:focus { border-color: var(--accent); color: var(--white); }
-  .config-banner button { background: var(--accent); color: var(--black); border: none; padding: 5px 12px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: var(--font-mono); }
 </style>
 </head>
 <body>
@@ -190,16 +179,8 @@
 <header>
   <div class="logo-badge">LEANTIL</div>
   <h1>Carousel Generator</h1>
-  <span class="sub">LinkedIn · Powered by Claude + Gemini</span>
+  <span class="sub">LinkedIn · Powered by Gemini</span>
 </header>
-
-<!-- Worker URL config -->
-<div class="config-banner">
-  <span>⚙️ Worker URL:</span>
-  <input type="text" id="worker-url-input" placeholder="https://leantil-carousel-worker.TUO_NOME.workers.dev" />
-  <button onclick="saveWorkerUrl()">Salva</button>
-  <span id="worker-url-status" style="color:var(--muted)">non configurato</span>
-</div>
 
 <div class="app">
 
@@ -279,7 +260,7 @@
       <div class="step-label">Step 3 · Gemini Imagen</div>
       <h2>Visual Generation</h2>
       <p style="font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.6;">
-        Genera immagini reali per ogni slide con Gemini Imagen. Richiede il Worker configurato.
+        Genera immagini per ogni slide con Gemini Imagen 3.
       </p>
       <div class="field">
         <label>STILE VISIVO</label>
@@ -336,10 +317,13 @@
 
 <script>
 // ─────────────────────────────────────────
-// CONFIG
+// ⚙️ CONFIGURA QUI l'URL del tuo Worker Cloudflare
 // ─────────────────────────────────────────
+const WORKER_URL = "https://leantil-carousel-worker.TUO_NOME.workers.dev";
 
-// Dati del sito LeanTil (estratti) – usati per il random idea generator
+// ─────────────────────────────────────────
+// CONTESTO LEANTIL
+// ─────────────────────────────────────────
 const LEANTIL_CONTEXT = `
 LeanTil è un cuscino smart per la postura. Rileva in tempo reale come si distribuisce il peso sulla seduta e invia un feedback visivo discreto quando rileva postura scorretta prolungata.
 
@@ -377,58 +361,40 @@ let state = {
   topics: [],
   slides: [],
   geminiImages: [],
-  workerUrl: localStorage.getItem('leantil_worker_url') || '',
   currentTab: 'topics'
 };
 
 // ─────────────────────────────────────────
-// INIT
+// API HELPERS — solo Gemini
 // ─────────────────────────────────────────
-window.addEventListener('DOMContentLoaded', () => {
-  if (state.workerUrl) {
-    document.getElementById('worker-url-input').value = state.workerUrl;
-    document.getElementById('worker-url-status').textContent = '✓ configurato';
-    document.getElementById('worker-url-status').style.color = 'var(--accent)';
-  }
-});
 
-function saveWorkerUrl() {
-  const url = document.getElementById('worker-url-input').value.trim().replace(/\/$/, '');
-  state.workerUrl = url;
-  localStorage.setItem('leantil_worker_url', url);
-  const status = document.getElementById('worker-url-status');
-  status.textContent = url ? '✓ salvato' : 'rimosso';
-  status.style.color = url ? 'var(--accent)' : 'var(--muted)';
-}
-
-// ─────────────────────────────────────────
-// API HELPER
-// ─────────────────────────────────────────
-async function callAnthropicViaWorker(messages, maxTokens = 1500) {
-  if (!state.workerUrl) throw new Error('Worker URL non configurato. Inserisci l\'URL del tuo Cloudflare Worker.');
-  const res = await fetch(`${state.workerUrl}/anthropic`, {
+// Testo: chiama /gemini-text sul Worker
+async function callGeminiText(messages, maxTokens = 1500) {
+  const res = await fetch(`${WORKER_URL}/gemini-text`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: maxTokens,
-      messages
-    })
+    body: JSON.stringify({ messages, maxTokens })
   });
-  if (!res.ok) throw new Error(`Worker error ${res.status}`);
+  if (!res.ok) {
+    const errBody = await res.text();
+    throw new Error(`Worker error ${res.status}: ${errBody}`);
+  }
   const data = await res.json();
   if (data.error) throw new Error(JSON.stringify(data.error));
-  return data.content.map(b => b.text || '').join('');
+  return data.text;
 }
 
-async function callGeminiViaWorker(prompt) {
-  if (!state.workerUrl) throw new Error('Worker URL non configurato.');
-  const res = await fetch(`${state.workerUrl}/gemini`, {
+// Immagini: chiama /gemini sul Worker
+async function callGeminiImage(prompt) {
+  const res = await fetch(`${WORKER_URL}/gemini`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ prompt })
   });
-  if (!res.ok) throw new Error(`Gemini worker error ${res.status}`);
+  if (!res.ok) {
+    const errBody = await res.text();
+    throw new Error(`Gemini image error ${res.status}: ${errBody}`);
+  }
   const data = await res.json();
   if (data.error) throw new Error(JSON.stringify(data.error));
   return data; // { imageBase64, mimeType }
@@ -481,12 +447,11 @@ async function generateRandomIdea() {
   const btn = document.getElementById('btn-random');
   btn.disabled = true; btn.textContent = '⏳ Generando…';
 
-  // Switch to topics tab
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab')[0].classList.add('active');
   state.currentTab = 'topics';
 
-  showLoading('Inventando un\'idea originale per LeanTil…');
+  showLoading("Inventando un'idea originale per LeanTil…");
 
   const randomSeed = RANDOM_TOPICS_POOL[Math.floor(Math.random() * RANDOM_TOPICS_POOL.length)];
   const randomAngle = ['provocatorio', 'empatico', 'dati e statistiche', 'storytelling personale', 'contro-intuitivo'][Math.floor(Math.random() * 5)];
@@ -501,7 +466,7 @@ Angolo narrativo: ${randomAngle}
 
 Sii creativo, inaspettato, evita i cliché del wellness. L'idea deve fermare lo scroll.
 
-Rispondi SOLO in JSON:
+Rispondi SOLO in JSON valido, senza markdown:
 {
   "emoji": "emoji singola",
   "title": "titolo del topic (max 8 parole, impattante)",
@@ -511,7 +476,7 @@ Rispondi SOLO in JSON:
 }`;
 
   try {
-    const raw = await callAnthropicViaWorker([{ role: 'user', content: prompt }], 600);
+    const raw = await callGeminiText([{ role: 'user', content: prompt }], 600);
     const clean = raw.replace(/```json|```/g, '').trim();
     const idea = JSON.parse(clean);
 
@@ -540,18 +505,11 @@ Rispondi SOLO in JSON:
 
 function useRandomIdea(encodedIdea) {
   const idea = JSON.parse(decodeURIComponent(encodedIdea));
-  // Inietta come topic selezionato direttamente
-  state.topics = [{
-    emoji: idea.emoji,
-    title: idea.title,
-    why: idea.description,
-    hook: idea.hook
-  }];
+  state.topics = [{ emoji: idea.emoji, title: idea.title, why: idea.description, hook: idea.hook }];
   state.selectedTopic = 0;
   document.getElementById('selected-topic-display').value = idea.title;
   document.getElementById('btn-content').disabled = false;
   renderTopics();
-  // Scroll panel to step 2
   document.querySelector('.panel').scrollTo({ top: 300, behavior: 'smooth' });
 }
 
@@ -575,7 +533,7 @@ Genera esattamente 5 idee di topic per un carousel LinkedIn:
 - Tono: ${state.tone}
 - Contesto aggiuntivo: ${context || 'nessuno'}
 
-Rispondi SOLO in JSON senza markdown:
+Rispondi SOLO in JSON valido senza markdown:
 {
   "topics": [
     {
@@ -588,7 +546,7 @@ Rispondi SOLO in JSON senza markdown:
 }`;
 
   try {
-    const raw = await callAnthropicViaWorker([{ role: 'user', content: prompt }]);
+    const raw = await callGeminiText([{ role: 'user', content: prompt }]);
     const clean = raw.replace(/```json|```/g, '').trim();
     state.topics = JSON.parse(clean).topics;
     renderTopics();
@@ -649,7 +607,7 @@ REGOLE:
 - Slide 2–${numSlides - 1}: contenuto di valore (dati, consigli, insight pratici) – una slide = un concetto
 - Ultima slide: CTA chiara verso la beta LeanTil (leantil.com)
 
-Rispondi SOLO in JSON:
+Rispondi SOLO in JSON valido senza markdown:
 {
   "slides": [
     {
@@ -663,7 +621,7 @@ Rispondi SOLO in JSON:
 }`;
 
   try {
-    const raw = await callAnthropicViaWorker([{ role: 'user', content: prompt }], 2000);
+    const raw = await callGeminiText([{ role: 'user', content: prompt }], 2000);
     const clean = raw.replace(/```json|```/g, '').trim();
     state.slides = JSON.parse(clean).slides;
     state.geminiImages = new Array(state.slides.length).fill(null);
@@ -719,7 +677,7 @@ async function generateGeminiVisuals() {
   document.querySelectorAll('.tab')[2].classList.add('active');
   state.currentTab = 'visual';
 
-  renderVisualGrid(true); // show loading state
+  renderVisualGrid(true);
 
   const btn = document.getElementById('btn-visual');
   btn.disabled = true; btn.textContent = '⏳ Generando immagini…';
@@ -729,11 +687,10 @@ async function generateGeminiVisuals() {
     const basePrompt = slide.gemini_prompt || `LinkedIn carousel slide for LeanTil posture smart cushion, ${state.visualStyle} style, professional, clean`;
     const fullPrompt = `${basePrompt}. Style: ${state.visualStyle}. Square format 1:1. No text, no words, no letters. Professional LinkedIn content. Minimalist, high quality.`;
 
-    // Update UI: this slide is loading
     updateSlideVisual(i, 'loading');
 
     try {
-      const result = await callGeminiViaWorker(fullPrompt);
+      const result = await callGeminiImage(fullPrompt);
       state.geminiImages[i] = result;
       updateSlideVisual(i, 'done', result);
     } catch(e) {
@@ -741,13 +698,11 @@ async function generateGeminiVisuals() {
       updateSlideVisual(i, 'error', null, e.message);
     }
 
-    // Piccola pausa tra le chiamate per evitare rate limiting
     if (i < state.slides.length - 1) await sleep(800);
   }
 
   btn.disabled = false; btn.textContent = '🎨 Rigenera visual';
 
-  // Mostra pulsante download se ci sono immagini
   const hasImages = state.geminiImages.some(img => img && img.imageBase64);
   if (hasImages) {
     document.getElementById('btn-download-images').style.display = 'inline-flex';
