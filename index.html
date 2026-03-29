@@ -452,8 +452,9 @@ Spunto casuale da cui partire: "${randomSeed}"
 Angolo narrativo: ${randomAngle}
 
 Sii creativo, inaspettato, evita i cliché del wellness. L'idea deve fermare lo scroll.
-"USA SOLO dati reali e verificabili (OMS, studi pubblicati, fonti note). " +
-"NON inventare percentuali o statistiche. Se non hai dati certi, usa affermazioni qualitative."
+Usa SOLO dati reali e verificabili (OMS, studi pubblicati, fonti note). NON inventare percentuali o statistiche.
+Se non hai dati certi, usa affermazioni qualitative.
+
 Rispondi SOLO in JSON valido, senza markdown:
 {
   "emoji": "emoji singola",
@@ -485,7 +486,7 @@ Rispondi SOLO in JSON valido, senza markdown:
           🎲 Altra idea
         </button>
       </div>`;
-  } catch(e) {
+  } catch (e) {
     showError('Errore: ' + e.message);
   }
 
@@ -500,7 +501,6 @@ function useRandomIdea() {
   document.getElementById('selected-topic-display').value = idea.title;
   document.getElementById('btn-content').disabled = false;
   renderTopics();
-  // Switcha al tab topic e scrolla al panel
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab')[0].classList.add('active');
   state.currentTab = 'topics';
@@ -520,19 +520,35 @@ async function discoverTopics() {
   btn.disabled = true; btn.textContent = '⏳ Ricerca…';
   showLoading('Analizzando il contesto LeanTil…');
 
-  const prompt = `Content strategist LinkedIn, brand wellness/tech.
+  const prompt = `Sei un content strategist LinkedIn per brand wellness/tech.
+
 ${LEANTIL_CONTEXT}
-Genera 5 topic carousel. Focus: ${focus}. Tono: ${state.tone}.${context ? ` Contesto: ${context}.` : ''}
-JSON valido senza markdown: { "topics": [{ "emoji","title","why","hook" }] }`
-"USA SOLO dati reali e verificabili (OMS, studi pubblicati, fonti note). " +
-"NON inventare percentuali o statistiche. Se non hai dati certi, usa affermazioni qualitative."
+
+Genera 5 topic molto specifici per carousel LinkedIn di LeanTil.
+Focus principale: ${focus}.
+Tono: ${state.tone}.
+${context ? `Contesto/stagionalità: ${context}.` : ''}
+
+Regole:
+- I topic devono essere concreti per remote worker italiani.
+- Evita i titoli generici tipo "5 consigli per stare meglio alla scrivania".
+- Usa SOLO dati reali e verificabili (OMS, studi pubblicati, fonti note). NON inventare percentuali o statistiche.
+- Se non hai dati certi, usa affermazioni qualitative anziché numeri.
+
+Rispondi SOLO in JSON valido, senza markdown, con questa struttura:
+{
+  "topics": [
+    { "emoji": "…", "title": "…", "why": "…", "hook": "…" }
+  ]
+}`;
+
   try {
     const raw = await callGeminiText([{ role: 'user', content: prompt }], 500);
     const clean = raw.replace(/```json|```/g, '').trim();
     state.topics = JSON.parse(clean).topics;
     renderTopics();
     setProgress(2);
-  } catch(e) {
+  } catch (e) {
     showError('Errore: ' + e.message);
   }
 
@@ -571,37 +587,35 @@ function selectTopic(i) {
 async function generateContent() {
   if (state.selectedTopic === null) return;
   const topic = state.topics[state.selectedTopic];
-  const numSlides = parseInt(document.getElementById('num-slides').value);
+  const numSlides = parseInt(document.getElementById('num-slides').value, 10);
 
   const btn = document.getElementById('btn-content');
   btn.disabled = true; btn.textContent = '⏳ Generazione…';
   showLoading('Strutturando le slide del carousel…');
 
-  const prompt = `Sei un copywriter esperto di carousel LinkedIn per LeanTil...
+  const prompt = `Sei un copywriter esperto di carousel LinkedIn per LeanTil (cuscino smart postura).
 
-REGOLE:
-- Slide 1: Hook fortissimo, sottotitolo intrigante
-- Slide 2–${numSlides - 1}: contenuto di valore – una slide = un concetto
-- Ultima slide: CTA verso leantil.com
-- USA SOLO dati e statistiche reali (es. OMS, studi ergonomici pubblicati). NON inventare numeri.
-- Se citi una fonte, deve essere reale e verificabile.
-...`;
+${LEANTIL_CONTEXT}
 
-Genera la struttura completa di un carousel di ${numSlides} slide sul topic: "${topic.title}"
-Hook della slide 1: "${topic.hook}"
+Devi generare la struttura completa di un carousel di ${numSlides} slide sul topic:
+"${topic.title}"
+
+Hook di partenza per la slide 1: "${topic.hook}"
 Tono: ${state.tone}
 
-REGOLE:
-- Slide 1: Hook fortissimo, sottotitolo intrigante
-- Slide 2–${numSlides - 1}: contenuto di valore (dati, consigli, insight pratici) – una slide = un concetto
-- Ultima slide: CTA chiara verso la beta LeanTil (leantil.com)
+Regole di struttura:
+- Slide 1: HOOK fortissimo + sottotitolo intrigante.
+- Slide 2–${numSlides - 1}: contenuto di valore (dati, insight, consigli pratici), una slide = un concetto.
+- Ultima slide: CTA chiara verso la beta LeanTil (leantil.com), eventualmente con invito a commentare/salvare il post.
+- Linguaggio semplice, diretto, in italiano, taglio LinkedIn (niente emoji ovunque, ma ok usi mirati).
+- Usa SOLO dati e statistiche reali (es. OMS, studi ergonomici pubblicati). NON inventare numeri: se non hai dati certi, usa formulazioni qualitative.
 
-Rispondi SOLO in JSON valido senza markdown:
+Rispondi SOLO in JSON valido, senza markdown, con questa struttura esatta:
 {
   "slides": [
     {
       "num": 1,
-      "type": "HOOK",
+      "type": "HOOK | PROBLEMA | INSIGHT | TIP | DATO | CTA | SOLUZIONE",
       "headline": "testo principale",
       "copy": "testo di supporto (max 30 parole)",
       "gemini_prompt": "prompt in inglese per generare con Gemini un'immagine LinkedIn per questa slide: stile, soggetto, mood (max 50 parole, NO testo nell'immagine)"
@@ -623,7 +637,7 @@ Rispondi SOLO in JSON valido senza markdown:
     document.getElementById('btn-visual').disabled = false;
     document.getElementById('export-bar').style.display = 'flex';
     document.getElementById('export-label').textContent = `${state.slides.length} slide pronte`;
-  } catch(e) {
+  } catch (e) {
     showError('Errore: ' + e.message);
   }
 
@@ -682,7 +696,7 @@ async function generateGeminiVisuals() {
       const result = await callGeminiImage(fullPrompt);
       state.geminiImages[i] = result;
       updateSlideVisual(i, 'done', result);
-    } catch(e) {
+    } catch (e) {
       state.geminiImages[i] = { error: e.message };
       updateSlideVisual(i, 'error', null, e.message);
     }
@@ -815,7 +829,9 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function copyText() {
   if (!state.slides.length) return;
-  const text = state.slides.map(s => `=== SLIDE ${s.num} · ${s.type} ===\n${s.headline}\n${s.copy}`).join('\n\n');
+  const text = state.slides
+    .map(s => `=== SLIDE ${s.num} · ${s.type} ===\n${s.headline}\n${s.copy}`)
+    .join('\n\n');
   navigator.clipboard.writeText(text).then(() => {
     const btn = document.querySelector('.export-bar .btn-primary');
     const orig = btn.textContent;
